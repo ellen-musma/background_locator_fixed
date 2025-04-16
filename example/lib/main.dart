@@ -8,7 +8,7 @@ import 'package:background_locator_2/settings/android_settings.dart';
 import 'package:background_locator_2/settings/ios_settings.dart';
 import 'package:background_locator_2/settings/locator_settings.dart';
 import 'package:flutter/material.dart';
-import 'package:location_permissions/location_permissions.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'file_manager.dart';
 import 'location_callback_handler.dart';
@@ -26,7 +26,7 @@ class _MyAppState extends State<MyApp> {
 
   String logStr = '';
   late bool isRunning;
-  late LocationDto lastLocation;
+  LocationDto? lastLocation;
 
   @override
   void initState() {
@@ -54,7 +54,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> updateUI(dynamic data) async {
     final log = await FileManager.readLogFile();
 
-    LocationDto locationDto = (data != null) ? LocationDto.fromJson(data) : null;
+    LocationDto? locationDto = (data != null) ? LocationDto.fromJson(data) : null;
     await _updateNotificationText(locationDto);
 
     setState(() {
@@ -65,7 +65,7 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  Future<void> _updateNotificationText(LocationDto data) async {
+  Future<void> _updateNotificationText(LocationDto? data) async {
     if (data == null) {
       return;
     }
@@ -174,26 +174,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<bool> _checkLocationPermission() async {
-    final access = await LocationPermissions().checkPermissionStatus();
-    switch (access) {
-      case PermissionStatus.unknown:
-      case PermissionStatus.denied:
-      case PermissionStatus.restricted:
-        final permission = await LocationPermissions().requestPermissions(
-          permissionLevel: LocationPermissionLevel.locationAlways,
-        );
-        if (permission == PermissionStatus.granted) {
-          return true;
-        } else {
-          return false;
-        }
-        break;
-      case PermissionStatus.granted:
-        return true;
-        break;
-      default:
-        return false;
-        break;
+    if (await Permission.locationAlways.isGranted) {
+      return true;
+    } else if (await Permission.locationWhenInUse.isGranted) {
+      return true;
+    } else {
+      return false;
     }
   }
 
@@ -203,9 +189,10 @@ class _MyAppState extends State<MyApp> {
         initCallback: LocationCallbackHandler.initCallback,
         initDataCallback: data,
         disposeCallback: LocationCallbackHandler.disposeCallback,
-        iosSettings: IOSSettings(accuracy: LocationAccuracy.NAVIGATION, distanceFilter: 0, stopWithTerminate: true),
+        iosSettings:
+            const IOSSettings(accuracy: LocationAccuracy.NAVIGATION, distanceFilter: 0, stopWithTerminate: true),
         autoStop: false,
-        androidSettings: AndroidSettings(
+        androidSettings: const AndroidSettings(
             accuracy: LocationAccuracy.NAVIGATION,
             interval: 5,
             distanceFilter: 0,
